@@ -1,0 +1,35 @@
+@charset "utf-8";
+.container{height: 1000px;
+	width: 800px;
+	margin-top: 0px;
+	margin-left: auto;
+	margin-right: auto;
+	background-color:;}
+ .container .mid{height: 700px;
+	width: 800px;
+	margin-top: 0px;
+	margin-left: auto;
+	margin-right: auto;
+	background-color: ;}
+.container .mid .left {
+	background-color: ;
+	height: 700px;
+	width: 390px;
+	float: left;
+	margin-right: 10px;
+	
+}
+.container .mid .right {
+	background-color: ;
+	float: left;
+	height: 700px;
+	width: 400px;/* CSS Document */
+	}
+
+.album{list-style:none;
+	font-size:12px;
+	line-height:1.5;}
+.album li{float:left;
+	width:68px;
+	margin:10px;}
+
