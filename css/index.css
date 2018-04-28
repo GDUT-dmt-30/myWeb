@@ -15,8 +15,7 @@
 	
 }
 .container .doubletop {
-	background-color:;
-	height: 50px;
+	height: 350px;
 	width: 800px;
 	
 }
@@ -34,16 +33,6 @@
 	width: 800px;
 	margin-bottom: 50px;
 }
-.nav{
-	list-style:none;
-	font-size:22px;
-	line-height:40px
-	}
-.nav li{
-	margin-right:5px;
-	float:left;
-	idth:100px;
-	}
 .container .wei {
 	background-color:;
 	height: 180px;
@@ -58,5 +47,43 @@
 	margin-bottom: px;
 	text-align:left
 }
+ul,li{
+	list-style:none;
 
-
+	}
+ul{
+	padding:0px;
+	margin:0px;
+	
+	}
+.main{
+		
+		background-image:url(../images/log1.png);
+		background-repeat:repeat-x;
+		width:100px;
+		margin-left:3px;
+		float:left;
+	}
+.main li{
+	background-color:#999;
+	}
+a{
+	text-decoration:none;
+	padding-left:20px;
+	display:block;
+	width:80px;
+	padding-top:3px;
+	padding-bottom:3px;
+	}
+.main a{
+	color:white;
+	background-image:url(../images/log2.png);
+	background-repeat:no-repeat;
+	background-position: 3px center;
+	}
+.main li a{
+	color:black;
+	background-image:none;
+	}
+.main ul{
+	display:none;}
