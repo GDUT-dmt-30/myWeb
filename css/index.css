@@ -16,7 +16,7 @@
 }
 .container .doubletop {
 	height: 350px;
-	width: 800px;
+	width: 8000px;
 	
 }
 .container #threetop {
@@ -24,7 +24,7 @@
 	height: 450px;
 	width: 800px;
 	margin-bottom: 10px;
-	text-align:left
+	text-align:center;
 }
 
 .container .mid {

@@ -1,10 +1,10 @@
 // JavaScript Document 
 $(document).ready(function() {
-	
-	$("#toggle").click(function(){
-		$("#threetop").toggle(1000)
+	$("#a_btn").button(function(){});
+	$("#a_btn").click(function(){
+		$("#threetop").toggle(1000);
 	});
-	
+
 	//$(".main>a").click(function(){
 	//	var ulNode=$(this).next("ul")
 	//ulNode.toggle(500);
