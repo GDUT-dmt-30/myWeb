@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js - 第一人称碰撞</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            background-color: #ffffff;
+            margin: 0;
+            overflow: hidden;
+            font-family: arial;
+        }
+        #blocker {
+
+            position: absolute;
+
+            width: 100%;
+            height: 100%;
+
+            background-color: rgba(0,0,0,0.5);
+
+        }
+
+        #instructions {
+
+            width: 100%;
+            height: 100%;
+
+            display: -webkit-box;
+            display: -moz-box;
+            display: box;
+
+            -webkit-box-orient: horizontal;
+            -moz-box-orient: horizontal;
+            box-orient: horizontal;
+
+            -webkit-box-pack: center;
+            -moz-box-pack: center;
+            box-pack: center;
+
+            -webkit-box-align: center;
+            -moz-box-align: center;
+            box-align: center;
+
+            color: #ffffff;
+            text-align: center;
+
+            cursor: pointer;
+
+        }
+
+    </style>
+</head>
+<body>
+<script src="../js/three.js"></script>
+<script src="../js/OBJLoader.js"></script>
+<script src="../js/Detector.js"></script>
+
+<script src="../js/CopyShader.js"></script>
+<script src="../js/FXAAShader.js"></script>
+<script src="../js/EffectComposer.js"></script>
+<script src="../js/RenderPass.js"></script>
+<script src="../js/ShaderPass.js"></script>
+<script src="../js/OutlinePass.js"></script>
+<script src="../js/dat.gui.min.js"></script>
+<script src="pointLock.js"></script>
+
+<div id="blocker">
+
+    <div id="instructions">
+        <span style="font-size:40px">点击开始</span>
+        <br />
+        (W, A, S, D 前后左右移动, 空格跳跃, 鼠标控制视角移动)
+    </div>
+
+</div>
+
+<script>
+
+    var camera, scene, renderer, controls;
+    var composer,outlinePass,effectFXAA;
+
+    var objects = [];
+    var selectedObjects = [];
+
+    var blocker = document.getElementById( 'blocker' );
+    var instructions = document.getElementById( 'instructions' );
+
+    var params = {
+        edgeStrength: 3.0,
+        edgeGlow: 0.0,
+        edgeThickness: 1.0,
+        pulsePeriod: 0,
+        rotate: false,
+        usePatternTexture: false
+    };
+
+    // Init gui
+
+    var gui = new dat.GUI( { width: 300 } );
+
+    gui.add( params, 'edgeStrength', 0.01, 10 ).onChange( function ( value ) {
+
+        outlinePass.edgeStrength = Number( value );
+
+    } );
+
+    gui.add( params, 'edgeGlow', 0.0, 1 ).onChange( function ( value ) {
+
+        outlinePass.edgeGlow = Number( value );
+
+    } );
+
+    gui.add( params, 'edgeThickness', 1, 4 ).onChange( function ( value ) {
+
+        outlinePass.edgeThickness = Number( value );
+
+    } );
+
+    gui.add( params, 'pulsePeriod', 0.0, 5 ).onChange( function ( value ) {
+
+        outlinePass.pulsePeriod = Number( value );
+
+    } );
+
+    gui.add( params, 'rotate' );
+
+    gui.add( params, 'usePatternTexture' ).onChange( function ( value ) {
+
+        outlinePass.usePatternTexture = value;
+
+    } );
+
+    var Configuration = function () {
+
+        this.visibleEdgeColor = '#ffffff';
+        this.hiddenEdgeColor = '#190a05';
+
+    };
+
+    var conf = new Configuration();
+
+    var controllerVisible = gui.addColor( conf, 'visibleEdgeColor' ).onChange( function ( value ) {
+
+        outlinePass.visibleEdgeColor.set( value );
+
+    } );
+
+    var controllerHidden = gui.addColor( conf, 'hiddenEdgeColor' ).onChange( function ( value ) {
+
+        outlinePass.hiddenEdgeColor.set( value );
+
+    } );
+
+    var havePointerLock = 'pointerLockElement' in document || 'mozPointerLockElement' in document || 'webkitPointerLockElement' in document;
+
+    //浏览器适配
+    if ( havePointerLock ) {
+
+        var element = document.body;
+
+        var pointerlockchange = function ( event ) {
+
+            if ( document.pointerLockElement === element || document.mozPointerLockElement === element || document.webkitPointerLockElement === element ) {
+
+                controlsEnabled = true;
+                controls.enabled = true;
+
+                blocker.style.display = 'none';
+
+            } else {
+
+                controls.enabled = false;
+
+                blocker.style.display = 'block';
+
+                instructions.style.display = '';
+
+            }
+
+        };
+
+        var pointerlockerror = function ( event ) {
+
+            instructions.style.display = '';
+
+        };
+
+        // Hook pointer lock state change events
+        document.addEventListener( 'pointerlockchange', pointerlockchange, false );
+        document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
+        document.addEventListener( 'webkitpointerlockchange', pointerlockchange, false );
+
+        document.addEventListener( 'pointerlockerror', pointerlockerror, false );
+        document.addEventListener( 'mozpointerlockerror', pointerlockerror, false );
+        document.addEventListener( 'webkitpointerlockerror', pointerlockerror, false );
+
+        //游戏开始，锁定鼠标光标
+        instructions.addEventListener( 'click', function ( event ) {
+
+            instructions.style.display = 'none';
+
+            // Ask the browser to lock the pointer
+            element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
+            element.requestPointerLock();
+
+        }, false );
+
+    } else {
+
+        instructions.innerHTML = '您的浏览器似乎不支持Pointer Lock API';
+
+    }
+
+    var controlsEnabled = false;
+
+    var moveForward = false;
+    var moveBackward = false;
+    var moveLeft = false;
+    var moveRight = false;
+    var canJump = false;//监听键盘事件所用的变量
+    //声明射线
+    var horizontalRaycaster = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(), 0, 10);
+    var raycasterOutLine = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(), 0, 2000);//随鼠标移动的射线
+
+
+    var velocity = new THREE.Vector3(); //移动速度变量
+    var direction = new THREE.Vector3(); //移动的方向变量
+    var rotation = new THREE.Vector3(); //当前的相机朝向
+    var speed = 500; //控制器移动速度
+
+    var prevTime = performance.now();
+
+    var vertex = new THREE.Vector3();
+    var color = new THREE.Color();
+    var mouse = new THREE.Vector2();
+
+    init();
+    animate();
+
+    function init() {
+
+
+        camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 1000 );
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color( 0xffffff );
+        scene.fog = new THREE.Fog( 0xffffff, 0, 750 );
+
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+
+        renderer = new THREE.WebGLRenderer();
+        renderer.shadowMap.enabled = true;
+        // todo - support pixelRatio in this demo
+        renderer.setSize( width, height );
+        document.body.appendChild( renderer.domElement );
+
+        var light = new THREE.HemisphereLight( 0xeeeeff, 0x777788, 0.75 );
+        light.position.set( 0.5, 1, 0.75 );
+        scene.add( light );
+
+        //调用控件实例化对象，使鼠标控制视角
+        controls = new THREE.PointerLockControls( camera );
+        //将实例化的对象添加到场景，这里可以通过controls.getObject().position.y = 50等调整初始位置
+        scene.add( controls.getObject() );
+
+        //添加发光通道
+        composer = new THREE.EffectComposer( renderer );
+
+        var renderPass = new THREE.RenderPass( scene, camera );
+        composer.addPass( renderPass );
+
+        outlinePass = new THREE.OutlinePass( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
+        composer.addPass( outlinePass );
+
+        var onLoad = function ( texture ) {
+
+            outlinePass.patternTexture = texture;
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+
+        };
+
+        var loader = new THREE.TextureLoader();
+
+        loader.load( '../images/tri_pattern.jpg', onLoad );
+
+        effectFXAA = new THREE.ShaderPass( THREE.FXAAShader );
+        effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
+        effectFXAA.renderToScreen = true;
+        composer.addPass( effectFXAA );
+
+        //监听记录鼠标事件
+        var onKeyDown = function ( event ) {
+
+            switch ( event.keyCode ) {
+
+                case 38: // up
+                case 87: // w
+                    moveForward = true;
+                    break;
+
+                case 37: // left
+                case 65: // a
+                    moveLeft = true; break;
+
+                case 40: // down
+                case 83: // s
+                    moveBackward = true;
+                    break;
+
+                case 39: // right
+                case 68: // d
+                    moveRight = true;
+                    break;
+
+                case 32: // space
+                    if ( canJump === true ) velocity.y += 350;
+                    canJump = false;
+                    break;
+
+            }
+
+        };
+        scene.add( controls.getObject() );
+        var onKeyUp = function ( event ) {
+
+            switch( event.keyCode ) {
+
+                case 38: // up
+                case 87: // w
+                    moveForward = false;
+                    break;
+
+                case 37: // left
+                case 65: // a
+                    moveLeft = false;
+                    break;
+
+                case 40: // down
+                case 83: // s
+                    moveBackward = false;
+                    break;
+
+                case 39: // right
+                case 68: // d
+                    moveRight = false;
+                    break;
+
+            }
+
+        };
+
+        document.addEventListener( 'keydown', onKeyDown, false );
+        document.addEventListener( 'keyup', onKeyUp, false );
+
+        //碰撞射线，Raycaster属性（起源：Vector3，方向：Vector3，近：浮动，远：浮动）
+        raycasterTop = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, - 1, 0 ), 0, 10 );//脚下
+         raycasterBtm = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, 1, 0 ), 0, 10 );//头顶
+
+        //创建一个平面
+        var floorGeometry = new THREE.PlaneBufferGeometry( 2000, 2000, 100, 100 );
+        floorGeometry.rotateX( - Math.PI / 2 );
+
+        // 顶点位移
+
+        var position = floorGeometry.attributes.position;
+
+        for ( var i = 0, l = position.count; i < l; i ++ ) {
+
+            vertex.fromBufferAttribute( position, i );
+
+            vertex.x += Math.random() * 20 - 10;
+            vertex.y += Math.random() * 2;
+            vertex.z += Math.random() * 20 - 10;
+
+            position.setXYZ( i, vertex.x, vertex.y, vertex.z );
+
+        }
+
+        floorGeometry = floorGeometry.toNonIndexed(); // 确保每一个面都有不同的顶点
+        //生成物体的颜色
+        position = floorGeometry.attributes.position;
+        var colors = [];
+
+        for ( var i = 0, l = position.count; i < l; i ++ ) {
+
+            color.setHSL( Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+            colors.push( color.r, color.g, color.b );
+
+        }
+
+        floorGeometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+
+        var floorMaterial = new THREE.MeshBasicMaterial( { vertexColors: THREE.VertexColors } );
+
+        var floor = new THREE.Mesh( floorGeometry, floorMaterial );
+        scene.add( floor );
+
+        // 物体相关
+
+        var boxGeometry = new THREE.BoxBufferGeometry( 20, 20, 20 );
+        boxGeometry = boxGeometry.toNonIndexed(); // 确保每一个面都有不同的顶点
+
+        position = boxGeometry.attributes.position;
+        colors = [];
+
+
+        for ( var i = 0, l = position.count; i < l; i ++ ) {
+
+            color.setHSL( Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+            colors.push( color.r, color.g, color.b );
+
+        }
+
+        boxGeometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+        //生成物体
+        for ( var i = 0; i < 500; i ++ ) {
+
+            var boxMaterial = new THREE.MeshPhongMaterial( { specular: 0xffffff, flatShading: true, vertexColors: THREE.VertexColors } );
+            boxMaterial.color.setHSL( Math.random() * 0.2 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+
+            var box = new THREE.Mesh( boxGeometry, boxMaterial );
+            box.position.x = Math.floor( Math.random() * 20 - 10 ) * 20;
+            box.position.y = Math.floor( Math.random() * 20 ) * 20 + 10;
+            box.position.z = Math.floor( Math.random() * 20 - 10 ) * 20;
+
+            scene.add( box );
+            objects.push( box );
+
+        }
+        //添加辅助线
+        group = new THREE.Group();
+        up = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 10, 0x00ff00);
+        horizontal = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 10, 0x00ffff);
+        down = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), new THREE.Vector3(), 10, 0xffff00);
+
+        group.add(up);
+        group.add(horizontal);
+        group.add(down);
+        scene.add(group);
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        window.addEventListener( 'resize', onWindowResize, false );
+        window.addEventListener( 'mousemove', onTouchMove );
+        window.addEventListener( 'touchmove', onTouchMove );
+
+    }
+
+    function onTouchMove( event ) {
+
+        var x, y;
+
+        if ( event.changedTouches ) {
+
+            x = event.changedTouches[ 0 ].pageX;
+            y = event.changedTouches[ 0 ].pageY;
+
+        } else {
+
+            x = event.clientX;
+            y = event.clientY;
+
+        }
+        //x,y是屏幕坐标，经过下面运算转化为相机平面二维坐标
+        mouse.x = ( x / window.innerWidth ) * 2 - 1;
+        mouse.y = - ( y / window.innerHeight ) * 2 + 1;
+
+        checkIntersection();
+
+    }
+    //传入的参数Push到暂存数组selectedObjects里，用于高亮显示
+    function addSelectedObject( object ) {
+
+        selectedObjects = [];
+        selectedObjects.push(object);
+
+    }
+
+    //这个函数主要根据鼠标的移动，把鼠标中心射线经过的第一个物体高亮处理
+    function checkIntersection() {
+
+        raycasterOutLine.setFromCamera( mouse, camera );
+
+        var intersects = raycasterOutLine.intersectObjects( objects );
+        //判断射线经过否物体的变量，这个会存储射线经过的相关物体的信息
+
+        if ( intersects.length > 0 ) {
+
+            var selectedObject = intersects[ 0 ].object;//读取射线经过的第一个物体
+            addSelectedObject( selectedObject );
+            outlinePass.selectedObjects = selectedObjects;
+
+        } else {
+            // outlinePass.selectedObjects = [];
+        }
+    }
+
+    function onWindowResize() {
+        //一些暂未了解的插件的设置
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        composer.setSize(window.innerWidth, window.innerHeight);
+        effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
+
+    }
+
+    function animate() {
+        requestAnimationFrame( animate );
+        if ( controlsEnabled === true ) {
+
+            var time = performance.now();//获取刷新时间
+            var delta = ( time - prevTime ) / 1000;
+            var control = controls.getObject();//获取到控制器对象
+
+            //velocity每次的速度，为了保证有过渡
+            velocity.x -= velocity.x * 10.0 * delta;
+            velocity.z -= velocity.z * 10.0 * delta;
+            velocity.y -= 9.8 * 100.0 * delta; //  默认下降的速度
+
+
+            direction.normalize();//将法向量的值归一化
+            group.position.set(control.position.x,control.position.y,control.position.z);
+
+            //获取根据鼠标的移动得出一个相关的向量矩阵
+            rotation.copy(controls.getObject().getWorldDirection().multiply(new THREE.Vector3(-1, 0,-1)));
+
+            //rotation是鼠标方向相关
+            //判断键盘按下的方向
+            var m = new THREE.Matrix4();
+            if(direction.z > 0){
+                if(direction.x > 0){
+                    m.makeRotationY(Math.PI/4);
+                }
+                else if(direction.x < 0){
+                    m.makeRotationY(-Math.PI/4);
+                }
+                else{
+                    m.makeRotationY(0);
+                }
+            }
+            else if(direction.z < 0){
+                if(direction.x > 0){
+                    m.makeRotationY(Math.PI/4*3);
+                }
+                else if(direction.x < 0){
+                    m.makeRotationY(-Math.PI/4*3);
+                }
+                else{
+                    m.makeRotationY(Math.PI);
+                }
+            }
+            else{
+                if(direction.x > 0){
+                    m.makeRotationY(Math.PI/2);
+                }
+                else if(direction.x < 0){
+                    m.makeRotationY(-Math.PI/2);
+                }
+            }
+           //direction是键盘方向向量
+            //给向量使用变换矩阵
+            rotation.applyMatrix4(m);
+
+            horizontalRaycaster.set( control.position , rotation );
+
+            direction.z = Number( moveForward ) - Number( moveBackward );
+            direction.x = Number( moveLeft ) - Number( moveRight );
+            direction.normalize(); // 这确保了所有方向的一致运动
+
+            //复制相机的位置给对象（体积的设定）
+            raycasterTop.ray.origin.copy( control.position );
+            //获取相机靠下10的位置
+            raycasterTop.ray.origin.y -= 10;
+
+            raycasterBtm.ray.origin.copy( control.position );
+
+            //相交判断，objects是场景里的物体
+            var intersections = raycasterTop.intersectObjects( objects );
+            var intersections1 = raycasterBtm.intersectObjects( objects );
+            var horizontalIntersections = horizontalRaycaster.intersectObjects(objects);
+
+            var onObject = intersections.length > 0;
+            var onObject1 = intersections1.length > 0;
+            var horOnObject = horizontalIntersections.length > 0;
+
+            if ( onObject === true) {//脚下的碰撞
+                velocity.y = Math.max( 0, velocity.y );
+                canJump = true;
+            }else if(onObject1 === true ){//头顶的碰撞
+                velocity.y = Math.min( 0, velocity.y );
+                canJump = false;
+            }
+
+            //判断移动方向修改速度方向
+            if(!horOnObject){
+                if ( moveForward || moveBackward ) velocity.z -= direction.z * speed * delta;
+                if ( moveLeft || moveRight ) velocity.x -= direction.x * speed * delta;
+            }
+
+            control.translateX( velocity.x * delta );
+            control.translateY( velocity.y * delta );
+            control.translateZ( velocity.z * delta );
+
+            //保证控制器的y轴在10以上
+            if ( controls.getObject().position.y < 10 ) {
+
+                velocity.y = 0;
+                controls.getObject().position.y = 10;
+
+                canJump = true;
+
+            }
+            prevTime = time;
+
+        }
+        composer.render();
+        renderer.render( scene, camera );
+    }
+
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="WEB_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$" />
+    <content url="file://F:/我的文档/modifushi" />
+    <content url="file://F:/我的文档/myGit" />
+    <content url="file://F:/我的文档/webGL/rainyday.js-master" />
+    <content url="file://F:/我的文档/webGL/three.js-dev" />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
