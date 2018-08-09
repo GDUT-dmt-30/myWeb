@@ -240,6 +240,7 @@
     var vertex = new THREE.Vector3();
     var color = new THREE.Color();
     var mouse = new THREE.Vector2();
+    var angle;
 
     init();
     animate();
@@ -438,13 +439,14 @@
         }
         //添加辅助线
         group = new THREE.Group();
-        up = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 10, 0x00ff00);
-        horizontal = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 10, 0x00ffff);
-        down = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), new THREE.Vector3(), 10, 0xffff00);
+        //up = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 10, 0x00ff00);
 
-        group.add(up);
-        group.add(horizontal);
-        group.add(down);
+        //down = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), new THREE.Vector3(), 10, 0xffff00);
+        // horizontal = new THREE.ArrowHelper( new THREE.Vector3(1,0,0),new THREE.Vector3(), 10, 0x00ffff);
+        // group.add(horizontal);
+        //group.add(up);
+        //group.add(horizontal);
+        //group.add(down);
         scene.add(group);
 
         renderer = new THREE.WebGLRenderer( { antialias: true } );
@@ -453,33 +455,11 @@
         document.body.appendChild( renderer.domElement );
 
         window.addEventListener( 'resize', onWindowResize, false );
-        window.addEventListener( 'mousemove', onTouchMove );
-        window.addEventListener( 'touchmove', onTouchMove );
+        window.addEventListener( 'mousemove', checkIntersection );
+        window.addEventListener( 'touchmove', checkIntersection );
 
     }
 
-    function onTouchMove( event ) {
-
-        var x, y;
-
-        if ( event.changedTouches ) {
-
-            x = event.changedTouches[ 0 ].pageX;
-            y = event.changedTouches[ 0 ].pageY;
-
-        } else {
-
-            x = event.clientX;
-            y = event.clientY;
-
-        }
-        //x,y是屏幕坐标，经过下面运算转化为相机平面二维坐标
-        mouse.x = ( x / window.innerWidth ) * 2 - 1;
-        mouse.y = - ( y / window.innerHeight ) * 2 + 1;
-
-        checkIntersection();
-
-    }
     //传入的参数Push到暂存数组selectedObjects里，用于高亮显示
     function addSelectedObject( object ) {
 
@@ -489,10 +469,13 @@
     }
 
     //这个函数主要根据鼠标的移动，把鼠标中心射线经过的第一个物体高亮处理
-    function checkIntersection() {
+    function checkIntersection(event) {
+        // mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+        // mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+        mouse.x = 0;
+        mouse.y = 0;
 
         raycasterOutLine.setFromCamera( mouse, camera );
-
         var intersects = raycasterOutLine.intersectObjects( objects );
         //判断射线经过否物体的变量，这个会存储射线经过的相关物体的信息
 
